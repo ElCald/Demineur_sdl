@@ -8,10 +8,14 @@
 #include "demineur.h"
 
 
+#define SIZE_CASE 24 //pixels
+
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
+#define POS_GRILLE_X 0
+#define POS_GRILLE_Y 0
 
-#define SIZE_CASE 16 //pixels
+
 
 
 using namespace std;
@@ -19,7 +23,8 @@ using namespace std;
 SDL_Window* fenetre;
 SDL_Renderer* renderer;
 
-SDL_bool fin_partie = SDL_TRUE;
+SDL_bool fin_explosion = SDL_TRUE;
+SDL_bool fin_victoire = SDL_TRUE;
 
 
 void ExitWithError(const char* msg){
@@ -125,11 +130,11 @@ void display_jeu(Case_t** grille, int** grille_flag){
         for(int j=0; j<GRILLE_L; j++){
 
             // Emplacement de l'image dans notre fenêtre
-            if(grille[i][j].visite == false && fin_partie){
+            if(grille[i][j].visite == false && fin_explosion){
                 if( (SDL_QueryTexture(caseTexture_hide, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
                     exit(EXIT_FAILURE);
             }
-            else if(fin_partie == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
+            else if(fin_explosion == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
                 if( (SDL_QueryTexture(caseTexture_bomb, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
                     exit(EXIT_FAILURE);
             }
@@ -152,16 +157,16 @@ void display_jeu(Case_t** grille, int** grille_flag){
 
             posCase.w = SIZE_CASE;
             posCase.h = SIZE_CASE;
-            posCase.x = i*SIZE_CASE;
-            posCase.y = j*SIZE_CASE;
+            posCase.x = (i*SIZE_CASE)+POS_GRILLE_X;
+            posCase.y = (j*SIZE_CASE)+POS_GRILLE_Y;
 
 
             // Chargement de la texture contenant l'image dans le rendu pour l'affichage
-            if(grille[i][j].visite == false && fin_partie){
+            if(grille[i][j].visite == false && fin_explosion){
                 if( (SDL_RenderCopy(renderer, caseTexture_hide, NULL, &posCase)) != 0 )
                     exit(EXIT_FAILURE);
             }
-            else if(fin_partie == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
+            else if(fin_explosion == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
                 if( (SDL_RenderCopy(renderer, caseTexture_bomb, NULL, &posCase)) != 0 )
                     exit(EXIT_FAILURE);
             }
@@ -192,8 +197,8 @@ void display_jeu(Case_t** grille, int** grille_flag){
  * Algo de parcours en largeur pour découvrir toutes les cases vides
  */
 void parcours_largeur_grille(Case_t** grille, int x, int y){
-    int orig_x = x/SIZE_CASE;
-    int orig_y = y/SIZE_CASE;
+    int orig_x = x;
+    int orig_y = y;
 
     Coord_t case_visite;
 
@@ -206,7 +211,8 @@ void parcours_largeur_grille(Case_t** grille, int x, int y){
         file_case.pop();
 
         if(grille[case_visite.x][case_visite.y].val == 0){ //dès qu'on tombe sur un chiffre on s'arrête là  
-            //on enfile les voisins non marqués qui ne sont pas des bombes et on les marques
+            
+            /* On enfile les voisins non marqués qui ne sont pas des bombes et on les marques */
 
             if(case_visite.x-1 >= 0 && grille[case_visite.x-1][case_visite.y].visite == false && grille[case_visite.x-1][case_visite.y].val != -1 ){
                 grille[case_visite.x-1][case_visite.y].visite = true;
@@ -256,34 +262,40 @@ void parcours_largeur_grille(Case_t** grille, int x, int y){
 
 /**
  * Lorsqu'on clique gauche sur une case ça permet de l'a découvrir avec tout l'algo qui vient derrière
+ * Si on tombe sur une bombe ça enclanche la fin de partie
  */
 void visiter_case(Case_t** grille, int** grille_flag, int x, int y){
-    if(x/SIZE_CASE>=0 && x/SIZE_CASE<GRILLE_H && y/SIZE_CASE>=0 && y/SIZE_CASE<GRILLE_L){
-        if(grille[x/SIZE_CASE][y/SIZE_CASE].visite == false && grille_flag[x/SIZE_CASE][y/SIZE_CASE] == 0){
-            if(grille[x/SIZE_CASE][y/SIZE_CASE].val == -1){
-                fin_partie = SDL_FALSE;
-                grille[x/SIZE_CASE][y/SIZE_CASE].visite == true;
+    if(x>=0 && x<GRILLE_H && y>=0 && y<GRILLE_L){
+        if(grille[x][y].visite == false && grille_flag[x][y] == 0){
+            if(grille[x][y].val == -1){
+                fin_explosion = SDL_FALSE;
+                grille[x][y].visite == true;
+                cout << "Explosion" << endl;
             }
             else{
-                // grille[x/SIZE_CASE][y/SIZE_CASE].visite = true;
                 parcours_largeur_grille(grille, x, y);
             }
         } 
     }
-}
+} //fin visite_case
 
 /**
  * Permet de poser un drapeau sur une grille différente pour protéger la case
  */
 void flag_case(int** grille_flag, int x, int y){
-    if(x/SIZE_CASE>=0 && x/SIZE_CASE<GRILLE_H && y/SIZE_CASE>=0 && y/SIZE_CASE<GRILLE_L){
-        grille_flag[x/SIZE_CASE][y/SIZE_CASE] = !grille_flag[x/SIZE_CASE][y/SIZE_CASE];
+    if(x>=0 && x<GRILLE_H && y>=0 && y<GRILLE_L){
+        grille_flag[x][y] = !grille_flag[x][y];
     }
-}
+} //fin flag_case
 
 
 
 int main(int argc, char* argv[]){
+
+    int orig_x;
+    int orig_y;
+    bool first_click = true;
+    int nb_case_hide = GRILLE_H*GRILLE_L; //nombre de cases cachés auquelle on va soustraire le nombre de bombe et si on atteint zéro alors c'est gagné
 
     //--------------------------- Init interface graphique ---------------------------
     fenetre = NULL;
@@ -308,6 +320,10 @@ int main(int argc, char* argv[]){
     Case_t** grille = (Case_t**)malloc(sizeof(Case_t*)*GRILLE_H);
     for(int i=0; i<GRILLE_H; i++){
         grille[i] = (Case_t*)malloc(sizeof(Case_t)*GRILLE_L);
+        for(int j=0; j<GRILLE_L; j++){
+            grille[i][j].val = 0;
+            grille[i][j].visite = false;
+        }
     }
 
     int** grille_flag = (int**)malloc(sizeof(int*)*GRILLE_H);
@@ -317,13 +333,6 @@ int main(int argc, char* argv[]){
             grille_flag[i][j] = 0;
         }
     }
-
-
-
-    initialiser_grille(grille, liste_bombe);
-
-    afficher_grille(grille);
-
     
 
     SDL_bool program_launched = SDL_TRUE; // Conditionnelle pour garder la fenêtre ouverte
@@ -347,14 +356,22 @@ int main(int argc, char* argv[]){
                     break;
 
                 case SDL_MOUSEBUTTONDOWN: // clique de la souris
-                    // printf("Clique : %d,%d\n", event.button.x, event.button.y);
                     
-                    if(fin_partie){
+                    // Coordonnées du curseur adaptées pour un tableau 2D
+                    orig_x = (event.button.x/SIZE_CASE) + POS_GRILLE_X; 
+                    orig_y = (event.button.y/SIZE_CASE) + POS_GRILLE_Y;
+
+                    if(fin_explosion || fin_victoire){ // Si on est sur une fin de partie donc explostion on ne peut plus cliquer
                         switch(event.button.button){ // le bouton cliqué sur la souris
                             case SDL_BUTTON_LEFT:
-                                visiter_case(grille, grille_flag, event.button.x, event.button.y); break;
+                                if(first_click){ // si on est sur le premier clique de la partie on génère tout autour de là où on a cliqué
+                                    nb_case_hide -= initialiser_grille(grille, liste_bombe, orig_x, orig_y);
+                                    afficher_grille(grille);
+                                    first_click = false;
+                                }
+                                visiter_case(grille, grille_flag, orig_x, orig_y); break;
                             case SDL_BUTTON_RIGHT:
-                                flag_case(grille_flag, event.button.x, event.button.y); break;
+                                flag_case(grille_flag, orig_x, orig_y); break;
                             default:
                                 continue;
                         }
@@ -372,6 +389,11 @@ int main(int argc, char* argv[]){
         }//fin boucle event
 
         display_jeu(grille, grille_flag);
+
+        if(fin_victoire && nb_case_visite(grille) == nb_case_hide){ //Si toutes les cases cachés ont été visité alors on a trouvé toutes les bombes
+            fin_victoire = SDL_FALSE;
+            cout << "Victoire" << endl;
+        }
 
     }//fin boucle main
 

@@ -10,13 +10,30 @@ using namespace std;
 
 
 /**
- * @param x Position x max
- * @param y Position y max
- * @param n Nombre de bombes à créer
- * Génère les coordonnées de toutes les bombes dans une liste pour les placer dans la grille
- * On n'est pas assuré que des bombes ne vont pas se super poser
+ * @return True si une bombe se trouve déjà au coordonnées choisi dans la liste
  */
-void generer_bombes(vector<Bombe_t> &liste_bombe, int x, int y, int n){
+bool bombe_in_liste(vector<Bombe_t> &liste_bombe, Bombe_t p){
+
+    for(int i=0; i<liste_bombe.size(); i++){
+        if(liste_bombe[i].x == p.x || liste_bombe[i].y == p.y){
+            return true;
+        }
+    }
+
+    return false;
+
+} //fin bombe_in_liste
+
+
+/**
+ * @param h Position x max
+ * @param l Position y max
+ * @param n Nombre de bombes à créer
+ * @param x Clique initial du joueur en X
+ * @param y Clique initial du joueur en Y
+ * Génère les coordonnées de toutes les bombes dans une liste pour les placer dans la grille
+ */
+void generer_bombes(vector<Bombe_t> &liste_bombe, int h, int l, int n, int x, int y){
 
     srand(time(NULL));
 
@@ -24,17 +41,18 @@ void generer_bombes(vector<Bombe_t> &liste_bombe, int x, int y, int n){
     
     for(int i=0; i<n; i++){
 
-        p.x = rand()%x; 
-        p.y = rand()%y;
-
+        do{
+            p.x = rand()%h; 
+            p.y = rand()%l;
+        }while(p.x == x && p.y == y && bombe_in_liste(liste_bombe, p));
+        
         liste_bombe.push_back(p);
-
     }
 }//fin generer_bombes
 
 
 /**
- * Retour le nombre de bombe autour d'une case
+ * @return Le nombre de bombe autour d'une case
  */
 int get_nb_bombe(Case_t** grille, int x, int y){
     int n = 0; //nb de bombe
@@ -53,10 +71,12 @@ int get_nb_bombe(Case_t** grille, int x, int y){
 } //fin get_nb_bombe
 
 
-
-void initialiser_grille(Case_t** grille, vector<Bombe_t> &liste_bombe){
+/**
+ * @return Le nombre de bombes placé sur la grille
+ */
+int initialiser_grille(Case_t** grille, vector<Bombe_t> &liste_bombe, int x, int y){
     int nb_bombes = ((GRILLE_H*GRILLE_L)*NB_BOMBE)/100;
-    generer_bombes(liste_bombe, GRILLE_H, GRILLE_L, nb_bombes);
+    generer_bombes(liste_bombe, GRILLE_H, GRILLE_L, nb_bombes, x, y);
 
     //init grille à zéro
     for(int i=0; i<GRILLE_H; i++){
@@ -82,12 +102,18 @@ void initialiser_grille(Case_t** grille, vector<Bombe_t> &liste_bombe){
             
         }
     }
+
+    liste_bombe.clear();
+
+    return nb_bombes;
 } //fin initialiser_grille
 
 
 
 
-
+/**
+ * Affichage console de la grille
+ */
 void afficher_grille(Case_t** grille){
 
     for(int i=0; i<GRILLE_H; i++){
@@ -104,3 +130,20 @@ void afficher_grille(Case_t** grille){
     }
 }//fin afficher_grille
 
+
+/**
+ * @return Le nombre de cases visités dans la grille
+ */
+int nb_case_visite(Case_t** grille){
+    int n = 0;
+
+    for(int i=0; i<GRILLE_H; i++){
+        for(int j=0; j<GRILLE_L; j++){
+            if(grille[i][j].visite == true){
+                n++;
+            }
+        }
+    }
+
+    return n;
+} //fin nb_case_visite
