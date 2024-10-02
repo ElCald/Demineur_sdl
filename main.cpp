@@ -19,6 +19,8 @@ using namespace std;
 SDL_Window* fenetre;
 SDL_Renderer* renderer;
 
+SDL_bool fin_partie = SDL_TRUE;
+
 
 void ExitWithError(const char* msg){
     SDL_Log("Erreur : %s > %s\n", msg, SDL_GetError());
@@ -29,6 +31,9 @@ void ExitWithError(const char* msg){
 }
 
 
+/**
+ * Procédure qui permet de faire l'affichage de l'interface avec SDL2
+ */
 void display_jeu(Case_t** grille, int** grille_flag){
 
     SDL_Texture* caseTexture_hide;
@@ -110,27 +115,27 @@ void display_jeu(Case_t** grille, int** grille_flag){
         SDL_FreeSurface(caseSurface_num[i]);
     }
 
-    // Rendu du visuel
+    // Clear du rendu du visuel
     SDL_RenderClear(renderer);
 
-    SDL_Rect posCase;
+    SDL_Rect posCase; //position des cases
 
     //boucles de la grille
     for(int i=0; i<GRILLE_H; i++){
         for(int j=0; j<GRILLE_L; j++){
 
             // Emplacement de l'image dans notre fenêtre
-            if(grille[i][j].visite == false){
+            if(grille[i][j].visite == false && fin_partie){
                 if( (SDL_QueryTexture(caseTexture_hide, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
+                    exit(EXIT_FAILURE);
+            }
+            else if(fin_partie == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
+                if( (SDL_QueryTexture(caseTexture_bomb, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
                     exit(EXIT_FAILURE);
             }
             else{
                 if(grille[i][j].val == 0){
                     if( (SDL_QueryTexture(caseTexture_void, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
-                        exit(EXIT_FAILURE);
-                }
-                else if(grille[i][j].val == -1){
-                    if( (SDL_QueryTexture(caseTexture_bomb, NULL, NULL, &posCase.w, &posCase.h)) != 0 )
                         exit(EXIT_FAILURE);
                 }
                 else{
@@ -152,17 +157,17 @@ void display_jeu(Case_t** grille, int** grille_flag){
 
 
             // Chargement de la texture contenant l'image dans le rendu pour l'affichage
-            if(grille[i][j].visite == false){
+            if(grille[i][j].visite == false && fin_partie){
                 if( (SDL_RenderCopy(renderer, caseTexture_hide, NULL, &posCase)) != 0 )
+                    exit(EXIT_FAILURE);
+            }
+            else if(fin_partie == SDL_FALSE && grille[i][j].val == -1){ //affichage des bombes
+                if( (SDL_RenderCopy(renderer, caseTexture_bomb, NULL, &posCase)) != 0 )
                     exit(EXIT_FAILURE);
             }
             else{
                 if(grille[i][j].val == 0){
                     if( (SDL_RenderCopy(renderer, caseTexture_void, NULL, &posCase)) != 0 )
-                        exit(EXIT_FAILURE);
-                }
-                else if(grille[i][j].val == -1){
-                    if( (SDL_RenderCopy(renderer, caseTexture_bomb, NULL, &posCase)) != 0 )
                         exit(EXIT_FAILURE);
                 }
                 else{
@@ -183,7 +188,9 @@ void display_jeu(Case_t** grille, int** grille_flag){
 
 } //fin display_jeu
 
-
+/**
+ * Algo de parcours en largeur pour découvrir toutes les cases vides
+ */
 void parcours_largeur_grille(Case_t** grille, int x, int y){
     int orig_x = x/SIZE_CASE;
     int orig_y = y/SIZE_CASE;
@@ -254,7 +261,8 @@ void visiter_case(Case_t** grille, int** grille_flag, int x, int y){
     if(x/SIZE_CASE>=0 && x/SIZE_CASE<GRILLE_H && y/SIZE_CASE>=0 && y/SIZE_CASE<GRILLE_L){
         if(grille[x/SIZE_CASE][y/SIZE_CASE].visite == false && grille_flag[x/SIZE_CASE][y/SIZE_CASE] == 0){
             if(grille[x/SIZE_CASE][y/SIZE_CASE].val == -1){
-                //cas où c'est une bombe
+                fin_partie = SDL_FALSE;
+                grille[x/SIZE_CASE][y/SIZE_CASE].visite == true;
             }
             else{
                 // grille[x/SIZE_CASE][y/SIZE_CASE].visite = true;
@@ -339,15 +347,17 @@ int main(int argc, char* argv[]){
                     break;
 
                 case SDL_MOUSEBUTTONDOWN: // clique de la souris
-                    // printf("Clique : %d,%d\n", event.button.x, event.button.y); 
-
-                    switch(event.button.button){ // le bouton cliqué sur la souris
-                        case SDL_BUTTON_LEFT:
-                            visiter_case(grille, grille_flag, event.button.x, event.button.y); break;
-                        case SDL_BUTTON_RIGHT:
-                            flag_case(grille_flag, event.button.x, event.button.y); break;
-                        default:
-                            continue;
+                    // printf("Clique : %d,%d\n", event.button.x, event.button.y);
+                    
+                    if(fin_partie){
+                        switch(event.button.button){ // le bouton cliqué sur la souris
+                            case SDL_BUTTON_LEFT:
+                                visiter_case(grille, grille_flag, event.button.x, event.button.y); break;
+                            case SDL_BUTTON_RIGHT:
+                                flag_case(grille_flag, event.button.x, event.button.y); break;
+                            default:
+                                continue;
+                        }
                     }
 
                     break;
