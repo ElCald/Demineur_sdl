@@ -6,4 +6,4 @@ Parcours en largeur sur la grille pour découvrir les cases, jusqu'au premier ch
 Drapeaux sur une autre grille.
 
 ---------
-![screenshot](misc/Demineur_example.gif)
+![screenshot](misc/demineur_example_GIF.gif)
